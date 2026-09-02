@@ -1,0 +1,22 @@
+note "fixture_for_manifest_string_rx"
+	description: "Local test data for BNF_CONSTANTS.Manifest_string_rx"
+
+class
+	MANIFEST_STRING_SAMPLE
+
+feature -- Access
+
+	greeting: STRING = "hello"
+
+	farewell: STRING = "goodbye"
+
+	empty_text: STRING = ""
+
+	punctuation: STRING = "a, b, c"
+
+	joined: STRING
+		once
+			Result := "left" + "right"
+		end
+
+end

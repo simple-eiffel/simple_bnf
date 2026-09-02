@@ -1,0 +1,9 @@
+{
+  "name": "simple_bnf",
+  "version": "0.1.0",
+  "description": "The ECMA-367 grammar of Eiffel as objects: 224 BNF-E production factories, three production forms, and curated regexes that find specimens in real Eiffel source",
+  "author": "Larry Rix",
+  "license": "MIT",
+  "category": "language-tooling",
+  "keywords": ["bnf", "grammar", "ecma-367", "eiffel", "parsing", "productions"]
+}

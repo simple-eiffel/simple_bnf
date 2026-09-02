@@ -1,0 +1,273 @@
+# Fleet Onboarding Evidence - simple_bnf
+# Date: 2026-09-02
+# Library: D:\prod\simple_bnf
+# Purpose: bring simple_bnf onto the simple_* fleet pattern and publish it.
+#          The library was written 2026-02-05 and had never been under git.
+
+================================================================================
+1. BUILD COMMAND
+================================================================================
+
+    cd /d/prod/simple_bnf
+    /d/prod/ec.sh test -config simple_bnf.ecf -target simple_bnf_tests
+
+ec.sh expands this to:
+
+    ec.exe -batch -config simple_bnf.ecf -target simple_bnf_tests -finalize -keep -c_compile
+
+Run in the FOREGROUND, blocking. `-keep' preserves the DBC contracts in the
+finalized code, which matters here: the contracts are the oracle for the
+whole-factory sweep test.
+
+Before the final build the whole EIFGENs tree was removed, so this is a clean
+compile, not an incremental one:
+
+    rm -rf EIFGENs
+
+================================================================================
+2. BUILD OUTPUT (final clean build)
+================================================================================
+
+Build start (UTC):  2026-09-02 12:18:33   (epoch 1788351513)
+
+Head:
+
+    === TEST MODE (finalize -keep) ===
+    Running: ec.exe -batch -config simple_bnf.ecf -target simple_bnf_tests -finalize -keep -c_compile
+    Eiffel Compilation Manager
+    Version 25.02.9.8732 - win64
+
+    Degree 6: Examining System
+    Degree 5: Parsing Classes
+    Degree 4: Analyzing Inheritance
+    Degree 3: Checking Types
+    Degree 2: Generating Byte Code
+    Degree -2: Constructing Polymorphic Table
+    Degree -3: Generating Optimized Code
+    System Recompiled.
+    Preparing C compilation using Microsoft Visual Studio 2022 VC++ (17.0)...
+
+Tail:
+
+    C compilation completed
+    Event logged.
+
+    [CLI] Closing oracle...
+    [CLI] Done.
+    OK Built: EIFGENs/simple_bnf_tests/F_code/simple_bnf.exe (1s ago)
+
+Process exit code: 0
+Build log length: 84 lines
+
+================================================================================
+3. STALE-EXE CHECK
+================================================================================
+
+ec.sh leaves a stale executable behind on a compile error, so the timestamp is
+checked against the moment the build started rather than trusting the exit code.
+
+    build start epoch : 1788351513
+    exe mtime epoch   : 1788351538   (2026-09-02 08:18:58.759 -0400)
+    exe mtime > start : YES  (+25s)
+
+    stat -c '%Y %y %n' EIFGENs/simple_bnf_tests/F_code/simple_bnf.exe
+
+================================================================================
+4. WARNING / ERROR GREP
+================================================================================
+
+    grep -cE "Error code|Warning:|Syntax error" final_build.log
+    0
+
+Zero errors, zero warnings - the fleet policy.
+
+One warning existed before this pass and was removed rather than tolerated:
+LIB_TESTS assigned SIMPLE_FILE.read_all (a STRING_32) into a STRING local,
+which triggered the obsolete `as_string_8' call warning three times. The helper
+now returns STRING_32.
+
+================================================================================
+5. TEST TOTALS
+================================================================================
+
+    ./EIFGENs/simple_bnf_tests/F_code/simple_bnf.exe
+
+    Running simple_bnf tests...
+
+      PASS: test_class_definition_rx
+      PASS: test_feature_definition_rx
+      PASS: test_manifest_string_rx
+      PASS: test_specimen_carries_construct_and_text
+      PASS: test_component_named_and_terminal
+      PASS: test_component_argumentless_make_is_a_known_defect
+      PASS: test_production_aggregate
+      PASS: test_production_aggregate_keeps_optional_brackets
+      PASS: test_production_choice
+      PASS: test_production_repetition
+      PASS: test_production_explicit_constructors_agree_with_detection
+      PASS: test_production_names_are_the_full_set
+      PASS: test_productions_factory_builds_named_productions
+      PASS: test_pattern_registry_lookup
+      PASS: test_registry_patterns_match_real_eiffel_source
+      PASS: test_curated_patterns_are_valid_regexes
+      PASS: test_every_production_instantiates
+
+      ========================
+      Results: 17 passed, 0 failed
+      ALL TESTS PASSED
+
+BEFORE this pass:  3 passed, 0 failed, 1 obsolete-call warning
+AFTER  this pass: 17 passed, 0 failed, 0 warnings
+
+The three original tests all passed, but only because they ran on the one
+machine whose EiffelStudio sat at the absolute path one of them hard-coded.
+Nothing in the object model - BNF_PRODUCTION, BNF_COMPONENT, BNF_SPECIMEN, the
+224-feature factory, the pattern registry - was covered at all. Adding that
+coverage is what surfaced the three defects in section 7.
+
+================================================================================
+6. TEST AUDIT (/eiffel.test-audit)
+================================================================================
+
+    ECF_TEST_TARGET      PASS  target simple_bnf_tests extends simple_bnf
+    ECF_ISE_TESTING      PASS  $ISE_LIBRARY\library\testing\testing.ecf
+    ECF_SIMPLE_TESTING   PASS  $SIMPLE_EIFFEL\simple_testing\simple_testing.ecf
+    ECF_ROOT_CLASS       PASS  <root class="TEST_APP" feature="make"/>
+    TEST_APP_EXISTS      PASS  testing/test_app.e
+    TEST_APP_MAKE        PASS  create make
+    LIB_TESTS_EXISTS     PASS  testing/lib_tests.e
+    LIB_TESTS_INHERITS   PASS  LIB_TESTS and ECMA367_FACTORY_TESTS both
+                               inherit TEST_SET_BASE
+    NO_EXTERNAL_DEPS     FAIL -> FIXED
+
+    STATUS: CONFORMING (after the fix below)
+
+NO_EXTERNAL_DEPS was the one failure. LIB_TESTS.test_manifest_string_rx read
+
+    C:\Program Files\Eiffel Software\EiffelStudio 25.02 Standard\contrib\
+        library\gobo\library\free_elks\src\elks\kernel\array.e
+
+and asserted a literal count of 16 string literals found in that particular
+file. It could pass on exactly one machine, with one EiffelStudio version, at
+one install path. It now reads testing/test_data/manifest_string_sample.txt, a
+fixture inside the repository, and checks the reported match position against a
+plain scan of the same text instead of against a magic number.
+
+TEST_APP was also rewritten to the fleet's single `run_test (agent ..., "name")'
+helper, replacing one hand-written rescue/retry wrapper per test.
+
+================================================================================
+7. STUB DETECTION (/eiffel.stub-detect)
+================================================================================
+
+Scope: src/ only (production code).
+
+    stub() calls                 0
+    TODO / FIXME / XXX / HACK    0
+    empty feature bodies         0
+    unimplemented externals      0
+
+    EXIT: PASS (0 issues)
+
+Note the distinction: no STUBS, but three real DEFECTS, found by running the
+code rather than by scanning it.
+
+  D1  Every choice production raised instead of parsing.
+      BNF_PRODUCTION.parse_choice_components split the right side with
+      SIMPLE_REGEX.split, which accepts a READABLE_STRING_GENERAL but whose gobo
+      backend requires an 8-bit subject. Passing right_side.to_string_32
+      violated RX_REGULAR_EXPRESSION.split's `subject_is_string' precondition.
+      All 50 choice productions, and make_choice, were unusable.
+      FIXED: scan for the alternatives with match_all instead of splitting.
+
+  D2  make_aggregate failed its own postcondition.
+      It set is_choice and is_repetition to False but never set is_aggregate to
+      True, so `ensure is_aggregate: is_aggregate' and the class invariant
+      `exactly_one_type' both failed on every call.
+      FIXED: set the flag. make_choice and make_repetition now state all three
+      flags explicitly instead of leaning on default initialization.
+
+  D3  28 of the 224 factory productions raised a parse postcondition.
+      ECMA-367 writes a repetition's separator as a concrete terminal -
+      {Note_entry ";" ...}* - not as the schematic section sign that
+      parse_repetition_components looked for, so 27 repetition productions
+      extracted no component at all. Bracket, whose right side is the
+      terminal-only "[]", extracted none either, because
+      parse_aggregate_components recognized construct names and bracketed
+      optionals but not quoted terminals.
+      FIXED: both extractors widened. The separator stays out of a repetition's
+      components - it is punctuation between specimens, not a component of them.
+
+D3 was found by a static sweep of all 224 right sides, then confirmed and
+regression-guarded by ECMA367_FACTORY_TESTS.test_every_production_instantiates,
+which calls all 224 factory features and lets each production's own contracts
+decide whether the parse was sound.
+
+KNOWN DEFECT LEFT STANDING:
+
+  BNF_COMPONENT.make ensures `name.is_empty' while the class invariant demands
+  `not name.is_empty'. The two contracts contradict each other, so `create
+  c.make' always raises with assertions on. make_from_construct is unusable for
+  the same reason - BNF_CONSTRUCT has no create clause and no setter, so a
+  construct's name is always empty.
+
+  NOT fixed: repairing it means deciding whether a nameless component is legal,
+  which is a design call for the author rather than a bug fix. It is pinned by
+  LIB_TESTS.test_component_argumentless_make_is_a_known_defect, which passes
+  only while the contradiction stands and fails loudly the day it is repaired.
+
+================================================================================
+8. DEPENDENCY TRIM
+================================================================================
+
+The library target declared five simple_* dependencies. grep over src/ shows
+what is actually referenced:
+
+    SIMPLE_GRAPH    used   (BNF_COMPONENT.specimen)
+    SIMPLE_REGEX    used   (BNF_CONSTANTS, BNF_PRODUCTION)
+    SIMPLE_FILE     used only by the tests  -> moved to the test target
+    SIMPLE_ZSTRING  0 references            -> removed
+    SIMPLE_SQL      0 references            -> removed
+
+simple_sql was linking SQLite into every consumer of the library; the link line
+before the trim carried eiffel_sqlite_2025\Clib\sqlite3.obj and esqlite.obj, and
+after it does not. The ECF also gained a <description> element.
+
+================================================================================
+9. LINE ENDINGS
+================================================================================
+
+Sibling .e files and the .ecf are CRLF, as are README/CHANGELOG/LICENSE/docs in
+simple_json and simple_shaping, and both of those repos set core.autocrlf=true.
+
+Every file written or edited in this pass was normalized to CRLF with a Python
+bytes replace after the fact, and core.autocrlf=true is set on this repository
+to match its siblings.
+
+================================================================================
+10. FILES CREATED
+================================================================================
+
+    README.md
+    CHANGELOG.md
+    LICENSE
+    package.json
+    .gitignore                                 (verbatim from simple_json)
+    docs/index.html
+    docs/.nojekyll
+    docs/css/style.css                         (ecosystem stylesheet, from simple_json)
+    docs/images/logo.svg                       (ecosystem logo, from simple_json)
+    docs/notes/README.md                       (caveat for the Feb 2026 documents)
+    testing/ecma367_factory_tests.e            (the 224-production sweep)
+    testing/test_data/manifest_string_sample.txt
+    .eiffel-workflow/evidence/fleet-onboarding.txt   (this file)
+
+    docs/*.md and docs/ecma367_productions.txt moved to docs/notes/, so the
+    published Pages root holds the site.
+
+MODIFIED:
+
+    simple_bnf.ecf         description, dependency trim
+    src/bnf_production.e   D1, D2, D3
+    testing/lib_tests.e    external dependency removed, object-model tests added
+    testing/test_app.e     fleet run_test helper, factory sweep runner

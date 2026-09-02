@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>simple_bnf - The ECMA-367 Grammar of Eiffel as Objects</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <header>
+        <div class="logo-container">
+            <img src="images/logo.svg" alt="simple_* logo" class="logo">
+        </div>
+        <h1>simple_bnf</h1>
+        <p class="tagline">The ECMA-367 grammar of Eiffel, as objects</p>
+        <div class="badges">
+            <img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="MIT License">
+            <img src="https://img.shields.io/badge/Eiffel-25.02-purple.svg" alt="Eiffel 25.02">
+            <img src="https://img.shields.io/badge/DBC-Contracts-green.svg" alt="Design by Contract">
+        </div>
+    </header>
+
+    <nav>
+        <ul>
+            <li><a href="#overview">Overview</a></li>
+            <li><a href="#status">Status</a></li>
+            <li><a href="#forms">Production Forms</a></li>
+            <li><a href="#quick-start">Quick Start</a></li>
+            <li><a href="#classes">Classes</a></li>
+            <li><a href="#patterns">Patterns</a></li>
+            <li><a href="#testing">Testing</a></li>
+            <li><a href="https://github.com/simple-eiffel/simple_bnf">GitHub</a></li>
+        </ul>
+    </nav>
+
+    <main>
+        <section id="overview">
+            <h2>Overview</h2>
+            <p>
+                ECMA-367 defines Eiffel in roughly 224 production rules written in
+                <strong>BNF-E</strong>. <strong>simple_bnf</strong> turns those rules into a
+                small object model: every non-terminal production is a feature you can call,
+                every production knows which of the three forms it takes and which components
+                it is built from, and a curated set of regular expressions finds
+                <em>specimens</em> of a construct in real Eiffel source text.
+            </p>
+            <p>
+                The vocabulary is the standard's own (&sect;8.2.2). A <strong>component</strong>
+                is any class text or syntactically meaningful part of it. A
+                <strong>construct</strong> describes the structure of a kind of component. A
+                component of a kind described by a certain construct is a
+                <strong>specimen</strong> of that construct: any class text is a specimen of the
+                construct <code>Class</code>; the identifier <code>your_variable</code> is a
+                specimen of the construct <code>Identifier</code>.
+            </p>
+            <p>
+                Part of the <a href="https://github.com/simple-eiffel">Simple Eiffel</a> ecosystem.
+            </p>
+        </section>
+
+        <section id="status">
+            <h2>Status</h2>
+            <div class="contracts">
+                <p>
+                    <strong>0.1.0 &mdash; first public release.</strong> 17 tests, all passing,
+                    zero compiler warnings. One of those tests sweeps the whole factory, so all
+                    224 production features are known to build a well-formed
+                    <code>BNF_PRODUCTION</code>.
+                </p>
+                <p>
+                    Be clear about what this is: a <strong>model of the grammar</strong>, not a
+                    parser. It classifies and decomposes production rules, and it can tell you
+                    whether a snippet looks like a specimen of a construct. It does not build a
+                    parse tree from an Eiffel class, and <code>BNF_COMPONENT.specimen</code> is a
+                    graph slot that nothing fills yet.
+                </p>
+                <p>
+                    Two further limits, both recorded in the changelog: the pattern registry
+                    covers 31 of the 224 productions, not all of them; and
+                    <code>BNF_COMPONENT</code>'s argumentless <code>make</code> can never succeed,
+                    because it ensures an empty name while the class invariant forbids one. A test
+                    pins that defect so a repair cannot pass unnoticed.
+                </p>
+            </div>
+        </section>
+
+        <section id="forms">
+            <h2>The Three Production Forms</h2>
+            <p>
+                ECMA-367 &sect;8.2.6&ndash;8.2.12 gives every non-terminal exactly one production,
+                in one of three forms. <code>BNF_PRODUCTION</code> detects the form from the right
+                side and decomposes it.
+            </p>
+            <table class="api-table">
+                <tr>
+                    <th>Form</th>
+                    <th>Right side looks like</th>
+                    <th>What <code>components</code> holds</th>
+                </tr>
+                <tr>
+                    <td><strong>Aggregate</strong></td>
+                    <td><code>Notes Class_header [Formal_generics]</code></td>
+                    <td>The fixed sequence; optional parts keep their brackets</td>
+                </tr>
+                <tr>
+                    <td><strong>Choice</strong></td>
+                    <td><code>Deferred | Effective_routine | Attribute</code></td>
+                    <td>One entry per alternative</td>
+                </tr>
+                <tr>
+                    <td><strong>Repetition</strong></td>
+                    <td><code>{Note_entry ";" ...}*</code> or <code>Digit+</code></td>
+                    <td>The repeated construct; the separator is excluded</td>
+                </tr>
+            </table>
+            <p>
+                The separator is punctuation <em>between</em> specimens, not a component
+                <em>of</em> them, so a repetition's component list names only what repeats.
+            </p>
+        </section>
+
+        <section id="quick-start">
+            <h2>Quick Start</h2>
+
+            <h3>Installation</h3>
+            <ol>
+                <li>Set the ecosystem environment variable, once, for every simple_* library:
+<pre><code>SIMPLE_EIFFEL=D:\prod</code></pre>
+                </li>
+                <li>Add to your ECF:
+<pre><code>&lt;library name="simple_bnf" location="$SIMPLE_EIFFEL/simple_bnf/simple_bnf.ecf"/&gt;</code></pre>
+                </li>
+            </ol>
+
+            <h3>Ask the standard what a construct is made of</h3>
+<pre><code><span class="keyword">local</span>
+    factory: <span class="type">ECMA367_PRODUCTIONS</span>
+    production: <span class="type">BNF_PRODUCTION</span>
+<span class="keyword">do</span>
+    <span class="keyword">create</span> factory
+
+    production := factory.class_name
+    print (production.construct_name)      <span class="comment">-- Class_name</span>
+    print (production.right_side)          <span class="comment">-- Identifier</span>
+    print (production.is_aggregate)        <span class="comment">-- True</span>
+<span class="keyword">end</span></code></pre>
+
+            <h3>Build a production and let it classify itself</h3>
+<pre><code><span class="keyword">create</span> production.make_from_text (<span class="string">"Feature_body"</span>, <span class="string">"Deferred | Effective_routine | Attribute"</span>)
+
+print (production.is_choice)           <span class="comment">-- True</span>
+print (production.components.count)    <span class="comment">-- 3</span>
+print (production.components [1])      <span class="comment">-- Deferred</span>
+print (production.is_valid)            <span class="comment">-- True</span></code></pre>
+
+            <h3>Find specimens in real source text</h3>
+<pre><code><span class="keyword">local</span>
+    registry: <span class="type">ECMA367_PRODUCTION_PATTERNS</span>
+    regex: <span class="type">SIMPLE_REGEX</span>
+<span class="keyword">do</span>
+    <span class="keyword">create</span> registry
+    <span class="keyword">create</span> regex
+
+    <span class="keyword">if</span> <span class="keyword">attached</span> registry.get_pattern (<span class="string">"class_name"</span>) <span class="keyword">as</span> al_pattern <span class="keyword">then</span>
+        print (regex.all_matches_for (al_pattern, <span class="string">"class BNF_SPECIMEN"</span>) [1])
+        <span class="comment">-- BNF_SPECIMEN</span>
+    <span class="keyword">end</span>
+<span class="keyword">end</span></code></pre>
+        </section>
+
+        <section id="classes">
+            <h2>The Classes</h2>
+
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <h3>BNF_PRODUCTION</h3>
+                    <p>A production rule: construct name, right side, detected form, extracted
+                    components, and syntax validation for each of the three forms.</p>
+                </div>
+
+                <div class="feature-card">
+                    <h3>BNF_CONSTRUCT</h3>
+                    <p>The abstract syntactic rule a component conforms to (&sect;8.2.2).
+                    Currently a name holder only.</p>
+                </div>
+
+                <div class="feature-card">
+                    <h3>BNF_COMPONENT</h3>
+                    <p>A syntactically meaningful piece of class text, terminal or not, with a
+                    <code>SIMPLE_GRAPH</code> of the specimens that comprise it.</p>
+                </div>
+
+                <div class="feature-card">
+                    <h3>BNF_SPECIMEN</h3>
+                    <p>One concrete instance of a construct: the construct's name plus the
+                    source text that manifests it.</p>
+                </div>
+
+                <div class="feature-card">
+                    <h3>ECMA367_PRODUCTIONS</h3>
+                    <p>The factory. One feature per non-terminal, 224 of them, each returning a
+                    parsed and classified production.</p>
+                </div>
+
+                <div class="feature-card">
+                    <h3>ECMA367_PRODUCTION_NAMES</h3>
+                    <p>The 223 distinct non-terminal names as a single array, for iterating the
+                    whole vocabulary.</p>
+                </div>
+
+                <div class="feature-card">
+                    <h3>BNF_CONSTANTS</h3>
+                    <p>Curated regex constants for Eiffel constructs, each with an
+                    <code>ensure is_valid</code> clause that compiles the pattern.</p>
+                </div>
+
+                <div class="feature-card">
+                    <h3>ECMA367_PATTERNS</h3>
+                    <p>Hand-curated regexes for the high-value productions, each documented with
+                    what it matches and worked examples.</p>
+                </div>
+
+                <div class="feature-card">
+                    <h3>ECMA367_PRODUCTION_PATTERNS</h3>
+                    <p>The registry: production name in, regex out, or <code>Void</code> when no
+                    pattern has been curated for it.</p>
+                </div>
+            </div>
+
+            <p>
+                Why 224 features but 223 names: <code>Constant_attribute</code> is generated
+                twice, as <code>constant_attribute_prod</code> (&sect;134) and
+                <code>constant_attribute_2_prod</code> (&sect;183). Both are kept for now so
+                nothing that calls either breaks.
+            </p>
+        </section>
+
+        <section id="patterns">
+            <h2>Patterns and Their Reach</h2>
+            <p>
+                A production tells you how specimens are <em>structured</em>. A pattern tells you
+                how to <em>find</em> one in a file. The two are separate on purpose: the grammar is
+                the standard's, the patterns are judgment calls, and judgment calls should be
+                visible as such.
+            </p>
+            <p>
+                <code>ECMA367_PRODUCTION_PATTERNS.get_pattern</code> answers for 31 productions
+                &mdash; class headers and names, feature clauses and declarations, type marks and
+                generics, the instruction and control-flow keywords, the contract clauses, the
+                manifest literals, comments and identifiers. Every other production name returns
+                <code>Void</code>, which is an honest answer and not a failure: ask for a pattern
+                that has not been curated and you get nothing rather than something wrong.
+            </p>
+        </section>
+
+        <section id="testing">
+            <h2>Testing</h2>
+<pre><code>/d/prod/ec.sh test -config simple_bnf.ecf -target simple_bnf_tests
+./EIFGENs/simple_bnf_tests/F_code/simple_bnf.exe</code></pre>
+            <p>
+                Run the executable <strong>from the library root</strong>: two tests read
+                <code>src/</code> and <code>testing/test_data/</code> by a path relative to the
+                current directory. Every file the suite touches lives inside the repository, so the
+                tests run on any machine that can build the library.
+            </p>
+            <p>
+                Contracts are compiled in and are themselves the oracle. That is how the
+                whole-factory sweep works: it does not assert 224 separate expectations, it calls
+                all 224 features and lets each production's own postconditions and invariant decide
+                whether the parse was sound.
+            </p>
+        </section>
+
+        <section id="documentation">
+            <h2>More</h2>
+            <ul class="doc-links">
+                <li><a href="https://github.com/simple-eiffel/simple_bnf/blob/main/README.md"><strong>README</strong></a> - installation, dependencies and layout</li>
+                <li><a href="https://github.com/simple-eiffel/simple_bnf/blob/main/CHANGELOG.md"><strong>Changelog</strong></a> - what was repaired for 0.1.0, and the known limitations</li>
+                <li><a href="notes/"><strong>Design notes</strong></a> - the February 2026 working documents, with a caveat about what in them was never built</li>
+            </ul>
+        </section>
+    </main>
+
+    <footer>
+        <p class="copyright">&copy; 2026 simple_* ecosystem. MIT License.</p>
+        <p>
+            <a href="https://github.com/simple-eiffel/simple_bnf">GitHub</a> |
+            <a href="https://github.com/simple-eiffel">Simple Eiffel</a>
+        </p>
+    </footer>
+</body>
+</html>
