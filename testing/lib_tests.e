@@ -358,8 +358,12 @@ feature {NONE} -- Implementation
 			end
 			create l_file.make_with_path (l_path)
 			Result := l_file.read_all
+				-- A checkout can carry either line ending, and only Windows
+				-- text reads hide the difference.
+			Result.prune_all ({CHARACTER_32} '%R')
 		ensure
 			result_attached: Result /= Void
+			no_carriage_returns: not Result.has ({CHARACTER_32} '%R')
 		end
 
 end
